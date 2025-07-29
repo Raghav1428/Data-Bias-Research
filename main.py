@@ -16,6 +16,7 @@ from sklearn.preprocessing import label_binarize
 import warnings
 warnings.filterwarnings("ignore")
 
+
 def load_cord19_dataset():
     try:
         df = pd.read_csv("data/cord19/all_sources_metadata_2020-03-13.csv", low_memory=False)
@@ -26,6 +27,7 @@ def load_cord19_dataset():
     except Exception as e:
         print(f"❌ Error loading CSV: {e}")
         return None
+
 
 class BiasAwareMLFramework:
     def __init__(self):
@@ -78,8 +80,7 @@ class BiasAwareMLFramework:
                 groups = sensitive_features[feature_name].reset_index(drop=True)
                 sp = y_pred.groupby(groups).mean()
                 tpr = groups.groupby(groups).apply(
-                    lambda g: recall_score(y_true[g.index], y_pred[g.index], average='macro', zero_division=0)
-)
+                    lambda g: recall_score(y_true[g.index], y_pred[g.index], average='macro', zero_division=0))
                 parity = tpr.max() - tpr.min() if len(tpr) > 1 else 0
                 fairness_scores[feature_name] = {
                     'statistical_parity_difference': sp.max() - sp.min() if len(sp) > 1 else 0,
@@ -107,6 +108,53 @@ class BiasAwareMLFramework:
             for attr, metrics in fair.items():
                 print(f"  {attr} SPD: {metrics['statistical_parity_difference']:.4f}, EOD: {metrics['equal_opportunity_difference']:.4f}")
 
+    def visualize_fairness(self):
+        spd_records = []
+        eod_records = []
+        tpr_matrix = {}
+
+        for model, metrics in self.fairness_metrics.items():
+            for attr, values in metrics.items():
+                spd_records.append((model, values['statistical_parity_difference']))
+                eod_records.append((model, values['equal_opportunity_difference']))
+                tpr_matrix[model] = values['group_metrics']['TPR']
+
+        # Bar plots for SPD and EOD
+        spd_df = pd.DataFrame(spd_records, columns=['Model', 'SPD'])
+        eod_df = pd.DataFrame(eod_records, columns=['Model', 'EOD'])
+
+        fig, axs = plt.subplots(1, 2, figsize=(14, 5))
+        sns.barplot(data=spd_df, x='Model', y='SPD', ax=axs[0], palette="rocket")
+        axs[0].set_title("Bias Across Models: Higher SPD Means Unequal Selection")
+        axs[0].set_ylabel("Statistical Parity Difference (SPD)")
+        axs[0].set_xlabel("Model")
+        axs[0].set_xticklabels(axs[0].get_xticklabels(), rotation=45, ha="right")
+        axs[0].text(-0.5, max(spd_df['SPD']) * 0.95, "A fair model should have SPD close to 0", fontsize=9)
+
+        sns.barplot(data=eod_df, x='Model', y='EOD', ax=axs[1], palette="mako")
+        axs[1].set_title("Opportunity Bias: Higher EOD Means Recall Varies by Group")
+        axs[1].set_ylabel("Equal Opportunity Difference (EOD)")
+        axs[1].set_xlabel("Model")
+        axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=45, ha="right")
+        axs[1].text(-0.5, max(eod_df['EOD']) * 0.95, "Lower is fairer (uniform recall)", fontsize=9)
+
+        plt.suptitle("Fairness Metrics Across ML Models\n(Helps reveal if a model treats different journals equally)", fontsize=12, y=1.05)
+        plt.tight_layout()
+        plt.savefig("fairness_barplots.png")
+        plt.show()
+
+        # Heatmap of TPR per journal
+        tpr_df = pd.DataFrame(tpr_matrix).T
+        plt.figure(figsize=(10, 6))
+        sns.heatmap(tpr_df, annot=True, cmap="viridis", fmt=".2f")
+        plt.title("TPR Heatmap: Model Accuracy Per Journal Group\n(Darker cells mean better recall for that journal)", fontsize=12)
+        plt.ylabel("Model")
+        plt.xlabel("Journal")
+        plt.tight_layout()
+        plt.savefig("fairness_tpr_heatmap.png")
+        plt.show()
+
+
 if __name__ == "__main__":
     print("\n🏥 Medical AI Bias Analysis Framework\n" + "=" * 50)
 
@@ -131,3 +179,4 @@ if __name__ == "__main__":
     ml.train_models(X_train, X_test, y_train, y_test)
     ml.calculate_fairness_metrics(y_test, pd.DataFrame({'journal': sens_test}))
     ml.generate_report()
+    ml.visualize_fairness()
