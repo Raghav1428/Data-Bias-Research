@@ -22,10 +22,10 @@ def load_cord19_dataset():
         df = pd.read_csv("data/cord19/all_sources_metadata_2020-03-13.csv", low_memory=False)
         df = df[['title', 'abstract', 'publish_time', 'journal']].dropna()
         df = df[df['abstract'].str.len() > 50]
-        print("✅ CORD-19 dataset loaded:", df.shape)
+        print("CORD-19 dataset loaded:", df.shape)
         return df
     except Exception as e:
-        print(f"❌ Error loading CSV: {e}")
+        print(f"Error loading CSV: {e}")
         return None
 
 
@@ -103,12 +103,31 @@ class BiasAwareMLFramework:
         print(df.round(3))
 
         print("\n=== FAIRNESS METRICS ===")
+        fairness_rows = []
         for model, fair in self.fairness_metrics.items():
-            print(f"\n{model}:")
             for attr, metrics in fair.items():
-                print(f"  {attr} SPD: {metrics['statistical_parity_difference']:.4f}, EOD: {metrics['equal_opportunity_difference']:.4f}")
+                fairness_rows.append({
+                    "Model": model,
+                    "Sensitive Feature": attr,
+                    "SPD": round(metrics['statistical_parity_difference'], 4),
+                    "EOD": round(metrics['equal_opportunity_difference'], 4)
+                })
+        fairness_df = pd.DataFrame(fairness_rows)
+        print(fairness_df.to_string(index=False))
 
     def visualize_fairness(self):
+        # Prepare metrics dataframe for violin and line plots
+        metrics_df = pd.DataFrame({
+            model: {
+                "Accuracy": res["accuracy"],
+                "Precision": res["precision"],
+                "Recall": res["recall"],
+                "F1": res["f1"],
+                "AUC": res["auc"]
+            } for model, res in self.results.items()
+        }).T.reset_index().rename(columns={"index": "Model"})
+
+        metrics_melted = metrics_df.melt(id_vars="Model", var_name="Metric", value_name="Score")
         spd_records = []
         eod_records = []
         tpr_matrix = {}
@@ -123,35 +142,75 @@ class BiasAwareMLFramework:
         spd_df = pd.DataFrame(spd_records, columns=['Model', 'SPD'])
         eod_df = pd.DataFrame(eod_records, columns=['Model', 'EOD'])
 
-        fig, axs = plt.subplots(1, 2, figsize=(14, 5))
-        sns.barplot(data=spd_df, x='Model', y='SPD', ax=axs[0], palette="rocket")
-        axs[0].set_title("Bias Across Models: Higher SPD Means Unequal Selection")
+        fig, axs = plt.subplots(1, 2, figsize=(15, 6))
+        sns.barplot(data=spd_df, x='Model', y='SPD', ax=axs[0], palette="flare")
+        axs[0].set_title("Bias Across Models\n(Higher SPD = Unequal Selection)", fontsize=12)
         axs[0].set_ylabel("Statistical Parity Difference (SPD)")
         axs[0].set_xlabel("Model")
-        axs[0].set_xticklabels(axs[0].get_xticklabels(), rotation=45, ha="right")
-        axs[0].text(-0.5, max(spd_df['SPD']) * 0.95, "A fair model should have SPD close to 0", fontsize=9)
+        axs[0].tick_params(axis='x', rotation=45)
+        axs[0].text(0, axs[0].get_ylim()[1]*0.95, "A fair model should have SPD close to 0", fontsize=9)
 
-        sns.barplot(data=eod_df, x='Model', y='EOD', ax=axs[1], palette="mako")
-        axs[1].set_title("Opportunity Bias: Higher EOD Means Recall Varies by Group")
+        sns.barplot(data=eod_df, x='Model', y='EOD', ax=axs[1], palette="crest")
+        axs[1].set_title("Opportunity Bias\n(Higher EOD = Unequal Recall)", fontsize=12)
         axs[1].set_ylabel("Equal Opportunity Difference (EOD)")
         axs[1].set_xlabel("Model")
-        axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=45, ha="right")
-        axs[1].text(-0.5, max(eod_df['EOD']) * 0.95, "Lower is fairer (uniform recall)", fontsize=9)
+        axs[1].tick_params(axis='x', rotation=45)
+        axs[1].text(0, axs[1].get_ylim()[1]*0.95, "Lower is better (uniform recall)", fontsize=9)
 
-        plt.suptitle("Fairness Metrics Across ML Models\n(Helps reveal if a model treats different journals equally)", fontsize=12, y=1.05)
+        plt.suptitle("Fairness Metrics Across ML Models", fontsize=14, y=1.03)
         plt.tight_layout()
         plt.savefig("fairness_barplots.png")
         plt.show()
 
-        # Heatmap of TPR per journal
-        tpr_df = pd.DataFrame(tpr_matrix).T
+        # Line plot: performance metrics across models
         plt.figure(figsize=(10, 6))
-        sns.heatmap(tpr_df, annot=True, cmap="viridis", fmt=".2f")
-        plt.title("TPR Heatmap: Model Accuracy Per Journal Group\n(Darker cells mean better recall for that journal)", fontsize=12)
+        sns.lineplot(data=metrics_melted, x="Metric", y="Score", hue="Model", marker="o")
+        plt.title("Model Performance Comparison Across Metrics")
+        plt.ylabel("Score")
+        plt.xlabel("Metric")
+        plt.tight_layout()
+        plt.savefig("performance_comparison.png")
+        plt.show()
+
+        # Violin plot of metric scores
+        plt.figure(figsize=(10, 6))
+        sns.violinplot(data=metrics_melted, x="Metric", y="Score", hue="Model", split=True)
+        plt.title("Metric Distribution Per Model (Violin Plot)")
+        plt.ylabel("Score")
+        plt.xlabel("Metric")
+        plt.tight_layout()
+        plt.savefig("performance_violinplot.png")
+        plt.show()
+
+        # Heatmap of TPR per journal (scrollable and rescaled)
+        tpr_df = pd.DataFrame(tpr_matrix).T
+
+        # Adjust figure width dynamically
+        num_journals = tpr_df.shape[1]
+        fig_width = max(12, num_journals * 0.25)
+
+        plt.figure(figsize=(fig_width, 6))
+        sns.heatmap(tpr_df, annot=False, cmap="viridis", fmt=".2f", cbar=True)
+        plt.title("TPR Heatmap: Model Accuracy Per Journal Group\n(Darker cells mean better recall)", fontsize=12)
         plt.ylabel("Model")
         plt.xlabel("Journal")
+        plt.xticks(rotation=90)
         plt.tight_layout()
-        plt.savefig("fairness_tpr_heatmap.png")
+        plt.savefig("fairness_tpr_heatmap.png", bbox_inches="tight", dpi=300)
+        plt.show()
+
+
+        # Ranking plot
+        metrics_df['Rank (F1)'] = metrics_df['F1'].rank(ascending=False, method='min')
+        metrics_df_sorted = metrics_df.sort_values('Rank (F1)')
+        plt.figure(figsize=(10, 6))
+        sns.barplot(data=metrics_df_sorted, x="Model", y="Rank (F1)", palette="crest")
+        plt.title("Model Ranking Based on F1 Score (Lower is Better)")
+        plt.ylabel("Rank")
+        plt.xlabel("Model")
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig("model_f1_ranking.png")
         plt.show()
 
 
@@ -162,8 +221,16 @@ if __name__ == "__main__":
     if df is None:
         exit()
 
-    top_journals = df['journal'].value_counts().nlargest(5).index
-    df = df[df['journal'].isin(top_journals)].copy()
+    # Keep only journals with at least 10 entries
+    min_samples = 10
+    journal_counts = df['journal'].value_counts()
+    selected_journals = journal_counts[journal_counts >= min_samples].index
+    df = df[df['journal'].isin(selected_journals)].copy()
+
+    # Optionally limit to top N if needed (e.g., 100)
+    df = df[df['journal'].isin(journal_counts.loc[selected_journals].nlargest(100).index)].copy()
+
+    print(f"Using {df.shape[0]} rows across {df['journal'].nunique()} journals")
 
     X = TfidfVectorizer(max_features=1000).fit_transform(df['abstract'])
     le_journal = LabelEncoder()
