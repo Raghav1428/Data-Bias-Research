@@ -27,6 +27,32 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
-
+---
 ### Output
-Two images named  fairness_barplots.png and fairness_tpr_heatmap.png that show the Bar graphs that represent Bias Accross Models, Opportunity Bias and Heatmap that represent Model Accuracy respectively.
+
+The script generates **five visualization files** in the project root:
+
+- `fairness_barplots.png` — Bar charts showing **Statistical Parity Difference (SPD)** and **Equal Opportunity Difference (EOD)** across models.
+- `fairness_tpr_heatmap.png` — Heatmap visualizing **True Positive Rates (TPR)** for each model across journal groups.
+- `model_f1_ranking.png` — Bar chart **ranking models** based on their F1 score (overall performance).
+- `performance_comparison.png` — Line plot comparing **Accuracy, Precision, Recall, F1, and AUC** across models.
+- `performance_violinplot.png` — Violin plots illustrating **distribution of metrics** per model.
+
+#### These plots help **interpret model bias and performance** visually, even for non-technical audiences.
+---
+### Plots
+
+#### 1. Fairness Barplots (SPD & EOD)
+![Fairness Barplots](images/fairness_barplots.png)
+
+#### 2. TPR Heatmap
+![TPR Heatmap](images/fairness_tpr_heatmap.png)
+
+#### 3. Model Metric Comparison
+![Performance Comparison](images/performance_comparison.png)
+
+#### 4. Metric Distribution (Violin)
+![Violin Plot](images/performance_violinplot.png)
+
+#### 5. Model Rankings
+![Model Rankings](images/model_rankings.png)

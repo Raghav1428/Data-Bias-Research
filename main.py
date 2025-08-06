@@ -159,7 +159,7 @@ class BiasAwareMLFramework:
 
         plt.suptitle("Fairness Metrics Across ML Models", fontsize=14, y=1.03)
         plt.tight_layout()
-        plt.savefig("fairness_barplots.png")
+        plt.savefig("images/fairness_barplots.png")
         plt.show()
 
         # Line plot: performance metrics across models
@@ -169,7 +169,7 @@ class BiasAwareMLFramework:
         plt.ylabel("Score")
         plt.xlabel("Metric")
         plt.tight_layout()
-        plt.savefig("performance_comparison.png")
+        plt.savefig("images/performance_comparison.png")
         plt.show()
 
         # Violin plot of metric scores
@@ -179,7 +179,7 @@ class BiasAwareMLFramework:
         plt.ylabel("Score")
         plt.xlabel("Metric")
         plt.tight_layout()
-        plt.savefig("performance_violinplot.png")
+        plt.savefig("images/performance_violinplot.png")
         plt.show()
 
         # Heatmap of TPR per journal (scrollable and rescaled)
@@ -196,7 +196,7 @@ class BiasAwareMLFramework:
         plt.xlabel("Journal")
         plt.xticks(rotation=90)
         plt.tight_layout()
-        plt.savefig("fairness_tpr_heatmap.png", bbox_inches="tight", dpi=300)
+        plt.savefig("images/fairness_tpr_heatmap.png", bbox_inches="tight", dpi=300)
         plt.show()
 
 
@@ -210,7 +210,7 @@ class BiasAwareMLFramework:
         plt.xlabel("Model")
         plt.xticks(rotation=45)
         plt.tight_layout()
-        plt.savefig("model_f1_ranking.png")
+        plt.savefig("images/model_f1_ranking.png")
         plt.show()
 
 
