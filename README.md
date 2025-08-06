@@ -55,4 +55,4 @@ The script generates **five visualization files** in the project root:
 ![Violin Plot](images/performance_violinplot.png)
 
 #### 5. Model Rankings
-![Model Rankings](images/model_rankings.png)
+![Model Rankings](images/model_f1_ranking.png)
